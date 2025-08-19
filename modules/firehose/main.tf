@@ -25,14 +25,9 @@ resource "aws_kinesis_firehose_delivery_stream" "kinesis_firehose_stream_logs" {
   destination = "http_endpoint"
 
   server_side_encryption {
-    enabled = true
+    enabled  = true
     key_type = "CUSTOMER_MANAGED_CMK"
-    key_arn = aws_kms_key.stream.arn
-  }
-
-  s3_configuration {
-    role_arn   = var.role_arn
-    bucket_arn = aws_s3_bucket.failed.arn
+    key_arn  = aws_kms_key.stream.arn
   }
 
   http_endpoint_configuration {
@@ -43,6 +38,11 @@ resource "aws_kinesis_firehose_delivery_stream" "kinesis_firehose_stream_logs" {
     buffering_interval = var.buffering_interval
     role_arn           = var.role_arn
     s3_backup_mode     = "FailedDataOnly"
+
+    s3_configuration {
+      role_arn   = var.role_arn
+      bucket_arn = aws_s3_bucket.failed.arn
+    }
 
     request_configuration {
       content_encoding = var.content_encoding
@@ -74,11 +74,6 @@ resource "aws_s3_bucket" "failed" {
   bucket = "${data.aws_caller_identity.current.account_id}-${var.name}-failed"
 }
 
-resource "aws_s3_bucket_acl" "failed" {
-  bucket = aws_s3_bucket.failed.id
-  acl    = "private"
-}
-
 resource "aws_s3_bucket_server_side_encryption_configuration" "failed" {
   bucket = aws_s3_bucket.failed.bucket
   rule {
@@ -96,6 +91,8 @@ resource "aws_s3_bucket_lifecycle_configuration" "failed" {
     id     = "delete"
     status = "Enabled"
 
+    filter {}
+
     noncurrent_version_expiration {
       noncurrent_days = var.s3_retention_days
     }
@@ -107,7 +104,7 @@ resource "aws_s3_bucket_lifecycle_configuration" "failed" {
 }
 
 resource "aws_s3_bucket_logging" "failed" {
-  bucket = aws_s3_bucket.failed.id
+  bucket        = aws_s3_bucket.failed.id
   target_bucket = var.s3_access_log_bucket
   target_prefix = "logs/"
 }
